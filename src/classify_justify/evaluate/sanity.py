@@ -140,4 +140,10 @@ def _attribute(
             target_layer = model.target_layer  # type: ignore[union-attr]
         else:
             target_layer = dict(model.named_modules())[target_layer_name]
-    return explainer_class(model, target_layer).attribute(image, target)
+    relevance = explainer_class(model, target_layer).attribute(image, target)
+    # Compared as magnitudes, following Adebayo et al. Methods disagree on what a
+    # negative value means — evidence against the class, or merely a downward
+    # gradient — so a sign flip under randomisation is not evidence that the method
+    # depends on the weights. Occlusion inverts its sign this way and would otherwise
+    # score -0.94, reading as a dramatic change when the structure is unchanged.
+    return relevance.abs()

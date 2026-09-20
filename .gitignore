@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Datasets and run artefacts — never committed; see README for how to fetch data.
+# Anchored to the repo root so they do not shadow the package's own data module.
+/data/
+/runs/
+*.pt
+*.pth

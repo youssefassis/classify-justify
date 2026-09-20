@@ -1,4 +1,4 @@
-"""Command line: `cjust download | train | explain | evaluate`.
+"""Command line: `python -m classify_justify download | train | explain | evaluate`.
 
 Four verbs, because the project makes four claims and each one should be checkable
 from a shell without reading the source.
@@ -67,7 +67,7 @@ def _add_evaluate(subparsers: argparse._SubParsersAction) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="cjust",
+        prog="python -m classify_justify",
         description="Train an X-ray defect classifier, explain it, and measure the explanations.",
     )
     parser.add_argument("--version", action="version", version=f"classify-justify {__version__}")

@@ -15,7 +15,7 @@ dependencies = [
     # it does not ship is implemented in explain/cam.py.
     "captum>=0.7",
     "pillow>=10.0",
-    # Only for rendering explanation grids in `cjust explain`.
+    # Only for rendering explanation grids in the `explain` command.
     "matplotlib>=3.7",
     # The CA bundle for the dataset download: a stock python.org install on macOS
     # ships no usable certificate store and fails to fetch over HTTPS without it.
@@ -24,9 +24,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.6"]
-
-[project.scripts]
-cjust = "classify_justify.cli:main"
 
 [build-system]
 requires = ["hatchling"]

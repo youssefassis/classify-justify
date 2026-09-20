@@ -23,7 +23,11 @@ def _add_download(subparsers: argparse._SubParsersAction) -> None:
 
 def _add_train(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser("train", help="train the defect classifier")
-    parser.add_argument("--data-root", required=True, help="the KolektorSDD2 directory")
+    parser.add_argument(
+        "--dataset", default="kolektor", choices=("kolektor", "synthetic"),
+        help="synthetic needs no download and no GPU",
+    )
+    parser.add_argument("--data-root", help="the KolektorSDD2 directory (kolektor only)")
     parser.add_argument("--output", default="runs/kolektor")
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=16)
@@ -49,7 +53,10 @@ def _add_explain(subparsers: argparse._SubParsersAction) -> None:
 def _add_evaluate(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser("evaluate", help="score every method and rank them")
     parser.add_argument("--checkpoint", required=True)
-    parser.add_argument("--data-root", required=True)
+    parser.add_argument(
+        "--dataset", default="kolektor", choices=("kolektor", "synthetic")
+    )
+    parser.add_argument("--data-root", help="the KolektorSDD2 directory (kolektor only)")
     parser.add_argument("--split", default="test", choices=("train", "test"))
     parser.add_argument("--methods", nargs="+", default=None)
     parser.add_argument("--images", type=int, default=25, help="defective images to score")
@@ -83,9 +90,12 @@ def _run_download(args: argparse.Namespace) -> int:
 def _run_train(args: argparse.Namespace) -> int:
     from classify_justify.training import TrainConfig, train
 
+    synthetic = args.dataset == "synthetic"
     result = train(
         TrainConfig(
+            dataset=args.dataset,
             data_root=args.data_root,
+            image_size=(64, 64) if synthetic else (256, 640),
             output=args.output,
             epochs=args.epochs,
             batch_size=args.batch_size,
@@ -159,7 +169,7 @@ def _run_explain(args: argparse.Namespace) -> int:
 
 
 def _run_evaluate(args: argparse.Namespace) -> int:
-    from classify_justify.data import KolektorSDD2, eval_transform
+    from classify_justify.data import KolektorSDD2, SyntheticDefects, eval_transform
     from classify_justify.evaluate import (
         faithfulness,
         model_randomization_test,
@@ -175,12 +185,18 @@ def _run_evaluate(args: argparse.Namespace) -> int:
     normalization = metadata.get("normalization", {"mean": 0.0, "std": 1.0})
     image_size = tuple(metadata.get("image_size", [256, 640]))
 
-    dataset = KolektorSDD2(
-        args.data_root,
-        args.split,
-        image_size=image_size,
-        transform=eval_transform(normalization["mean"], normalization["std"]),
-    )
+    transform = eval_transform(normalization["mean"], normalization["std"])
+    if args.dataset == "synthetic":
+        dataset = SyntheticDefects(
+            size=256, image_size=min(image_size), seed=2, transform=transform
+        )
+    else:
+        if not args.data_root:
+            parser_error = "the kolektor dataset needs --data-root"
+            raise SystemExit(parser_error)
+        dataset = KolektorSDD2(
+            args.data_root, args.split, image_size=image_size, transform=transform
+        )
     defective = [i for i, label in enumerate(dataset.labels) if label == 1][: args.images]
     if not defective:
         print("no defective images in this split")

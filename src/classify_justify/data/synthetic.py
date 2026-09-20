@@ -12,6 +12,8 @@ need: a model that has genuinely learned something.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import torch
 from torch.utils.data import Dataset
 
@@ -30,6 +32,8 @@ class SyntheticDefects(Dataset):
         blob_radius: int = 4,
         noise: float = 0.30,
         seed: int = 0,
+        transform: Callable[[torch.Tensor], torch.Tensor] | None = None,
+        indices: list[int] | None = None,
     ) -> None:
         if size < 2:
             raise ValueError("need at least one image per class")
@@ -38,13 +42,23 @@ class SyntheticDefects(Dataset):
         self.blob_radius = blob_radius
         self.noise = noise
         self.seed = seed
+        self.transform = transform
+        # `transform` and `indices` mirror KolektorSDD2 so the two are interchangeable
+        # everywhere: the trainer, the CLI and the evaluation loop take either.
+        self.indices = list(range(size)) if indices is None else list(indices)
 
     def __len__(self) -> int:
-        return self.size
+        return len(self.indices)
 
-    def __getitem__(self, index: int) -> tuple[torch.Tensor, int, torch.Tensor]:
-        if not 0 <= index < self.size:
-            raise IndexError(index)
+    @property
+    def labels(self) -> list[int]:
+        """Labels for every item, for stratified splitting and class weighting."""
+        return [index % 2 for index in self.indices]
+
+    def __getitem__(self, position: int) -> tuple[torch.Tensor, int, torch.Tensor]:
+        if not 0 <= position < len(self.indices):
+            raise IndexError(position)
+        index = self.indices[position]
         # Seeded per item so the dataset is a pure function of (seed, index) and a
         # split stays identical across processes and workers.
         generator = torch.Generator().manual_seed(self.seed * 1_000_003 + index)
@@ -68,6 +82,8 @@ class SyntheticDefects(Dataset):
             image += blob.unsqueeze(0)
             mask = (squared <= self.blob_radius**2).unsqueeze(0)
 
+        if self.transform is not None:
+            image = self.transform(image)
         return image, label, mask
 
 

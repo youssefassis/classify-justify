@@ -30,6 +30,8 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.transforms.functional import pil_to_tensor
 
+from classify_justify.progress import progress, reading
+
 URL = "https://data.vicos.si/datasets/KSDD/KolektorSDD2.zip"
 ARCHIVE_BYTES = 853_126_555
 #: The archive's own top-level directories; there is no official validation split.
@@ -72,11 +74,22 @@ def download(root: str | Path, force: bool = False) -> Path:
                 f"{URL} served {declared} bytes, expected {ARCHIVE_BYTES}. "
                 "The dataset may have been republished; verify before trusting it."
             )
-        with archive.open("wb") as handle:
-            shutil.copyfileobj(response, handle, length=1 << 20)
+        counter = reading(
+            response,
+            declared,
+            desc="downloading",
+            unit="B",
+            unit_scale=True,
+            unit_divisor=1024,
+        )
+        with archive.open("wb") as handle, counter as counted:
+            shutil.copyfileobj(counted, handle, length=1 << 20)
 
     with zipfile.ZipFile(archive) as bundle:
-        bundle.extractall(target)
+        # Extracted member by member rather than with extractall, only so the ~6,700
+        # files can be counted; the result is identical.
+        for member in progress(bundle.infolist(), desc="extracting", unit="file"):
+            bundle.extract(member, target)
     archive.unlink()
     return target
 

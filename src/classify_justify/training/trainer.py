@@ -37,6 +37,7 @@ from classify_justify.data import (
     train_transform,
 )
 from classify_justify.models import DefectClassifier, ModelConfig, save_checkpoint
+from classify_justify.progress import progress
 from classify_justify.training.metrics import ClassificationReport, class_weights, report
 
 
@@ -213,7 +214,16 @@ def train(config: TrainConfig, verbose: bool = True) -> TrainResult:
         started = time.time()
         running = 0.0
         seen = 0
-        for images, labels in train_loader:
+        # leave=False: the bar erases itself so the epoch's summary line below is the
+        # only thing that survives in the scrollback.
+        batches = progress(
+            train_loader,
+            enabled=verbose,
+            desc=f"epoch {epoch}/{config.epochs}",
+            unit="batch",
+            leave=False,
+        )
+        for images, labels in batches:
             images, labels = images.to(device), labels.to(device)
             optimiser.zero_grad()
             loss = criterion(model(images), labels)

@@ -175,7 +175,7 @@ when its threshold is still badly calibrated.
 ## Development
 
 ```bash
-python -m pytest        # 98 tests, ~30 s
+python -m pytest        # 104 tests, ~30 s
 python -m ruff check .
 ```
 

@@ -13,6 +13,7 @@ from pathlib import Path
 import torch
 
 from classify_justify import __version__
+from classify_justify.progress import progress, write
 
 
 def _add_download(subparsers: argparse._SubParsersAction) -> None:
@@ -152,7 +153,8 @@ def _run_explain(args: argparse.Namespace) -> int:
     axes[0].set_title("input")
     axes[0].axis("off")
 
-    for axis, name in zip(axes[1:], methods, strict=False):
+    explaining = progress(methods, desc="explaining", unit="method", leave=False)
+    for axis, name in zip(axes[1:], explaining, strict=False):
         relevance = build(name, model, model.target_layer).attribute(image, args.target)
         axis.imshow(image[0, 0], cmap="gray")
         axis.imshow(to_heatmap(relevance)[0, 0], cmap="inferno", alpha=0.55)
@@ -204,10 +206,10 @@ def _run_evaluate(args: argparse.Namespace) -> int:
 
     methods = args.methods or available()
     results = []
-    for name in methods:
+    for name in progress(methods, desc="methods", unit="method", leave=False):
         explainer = build(name, model, model.target_layer)
         totals = dict.fromkeys(("deletion", "insertion", "pointing", "mass", "rank"), 0.0)
-        for index in defective:
+        for index in progress(defective, desc=name, unit="image", leave=False):
             image, _, mask = dataset[index]
             batched = image.unsqueeze(0)
             relevance = explainer.attribute(batched, 1)
@@ -225,11 +227,10 @@ def _run_evaluate(args: argparse.Namespace) -> int:
             row["sanity_correlation"] = sanity.final_correlation
             row["sanity_passed"] = sanity.passed()
         results.append(row)
-        print(
+        write(
             f"{name:22} del {row['deletion']:.3f}  ins {row['insertion']:.3f}  "
             f"point {row['pointing']:.2f}  mass {row['mass']:.3f}  rank {row['rank']:.3f}"
-            + (f"  sanity {row['sanity_correlation']:+.2f}" if args.sanity else ""),
-            flush=True,
+            + (f"  sanity {row['sanity_correlation']:+.2f}" if args.sanity else "")
         )
 
     results.sort(key=lambda r: r["insertion"] - r["deletion"], reverse=True)

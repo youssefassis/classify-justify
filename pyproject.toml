@@ -24,6 +24,10 @@ dependencies = [
     # The CA bundle for the dataset download: a stock python.org install on macOS
     # ships no usable certificate store and fails to fetch over HTTPS without it.
     "certifi>=2024.2",
+    # Progress for the four commands that run long and silently. Pure Python with no
+    # transitive dependencies, and bars are suppressed off a terminal, so nothing
+    # about this reaches a redirected log.
+    "tqdm>=4.66",
 ]
 
 [project.optional-dependencies]

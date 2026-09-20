@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Run artefacts — never committed. Anchored to the repo root so it does not shadow
+# the package's own modules. Datasets are ignored by data/.gitignore instead, which
+# keeps the folder itself tracked.
+/runs/
+*.pt
+*.pth

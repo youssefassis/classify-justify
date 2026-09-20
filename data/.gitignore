@@ -1,0 +1,5 @@
+# The datasets land here and are never committed: KolektorSDD2 is 853 MB and its
+# licence (CC BY-NC-SA 4.0) forbids redistribution. The folder itself is tracked so
+# `download --root data` has somewhere to go.
+*
+!.gitignore

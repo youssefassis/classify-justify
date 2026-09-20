@@ -11,13 +11,15 @@ keywords = ["explainable-ai", "xai", "attribution", "captum", "defect-detection"
 dependencies = [
     "torch>=2.2",
     "torchvision>=0.17",
+    # Captum supplies the gradient and surrogate attribution methods; the CAM family
+    # it does not ship is implemented in explain/cam.py.
     "captum>=0.7",
-    "numpy>=1.24",
     "pillow>=10.0",
-    "scikit-learn>=1.3",
+    # Only for rendering explanation grids in `cjust explain`.
     "matplotlib>=3.7",
-    "pyyaml>=6.0",
-    "tqdm>=4.66",
+    # The CA bundle for the dataset download: a stock python.org install on macOS
+    # ships no usable certificate store and fails to fetch over HTTPS without it.
+    "certifi>=2024.2",
 ]
 
 [project.optional-dependencies]

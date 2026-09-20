@@ -111,11 +111,31 @@ def build_model(**kwargs: object) -> DefectClassifier:
     return DefectClassifier(ModelConfig(**kwargs))  # type: ignore[arg-type]
 
 
-def save_checkpoint(model: DefectClassifier, path: str | Path) -> None:
-    """Store weights together with the config that rebuilds the architecture."""
+def save_checkpoint(
+    model: DefectClassifier, path: str | Path, metadata: dict | None = None
+) -> None:
+    """Store weights, the config that rebuilds the architecture, and run metadata.
+
+    `metadata` carries the normalisation statistics. They belong with the weights:
+    explaining an image preprocessed differently from training silently attributes a
+    different input, and nothing about the resulting heatmap looks wrong.
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    torch.save({"config": asdict(model.config), "state_dict": model.state_dict()}, path)
+    torch.save(
+        {
+            "config": asdict(model.config),
+            "state_dict": model.state_dict(),
+            "metadata": metadata or {},
+        },
+        path,
+    )
+
+
+def read_metadata(path: str | Path) -> dict:
+    """The metadata stored alongside a checkpoint's weights."""
+    blob = torch.load(Path(path), map_location="cpu", weights_only=True)
+    return blob.get("metadata", {})
 
 
 def load_checkpoint(path: str | Path, map_location: str | torch.device = "cpu") -> DefectClassifier:

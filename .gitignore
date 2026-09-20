@@ -12,9 +12,9 @@ dist/
 .coverage
 htmlcov/
 
-# Datasets and run artefacts — never committed; see README for how to fetch data.
-# Anchored to the repo root so they do not shadow the package's own data module.
-/data/
+# Run artefacts — never committed. Anchored to the repo root so it does not shadow
+# the package's own modules. Datasets are ignored by data/.gitignore instead, which
+# keeps the folder itself tracked.
 /runs/
 *.pt
 *.pth

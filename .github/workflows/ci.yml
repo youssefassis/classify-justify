@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Read-only by default: nothing here needs to write to the repository, and a
+# compromised action inherits only what the token is granted.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint and test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor declared in pyproject, and the newest release. If it works on
+        # both ends it works in between.
+        python-version: ["3.10", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Pinned to an exact release: setup-uv publishes no floating major tag, and
+      # Dependabot bumps this on its weekly pass.
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+
+      - run: uv venv --python ${{ matrix.python-version }}
+
+      # CPU wheels explicitly: the default PyPI torch build carries the CUDA
+      # runtime, which is gigabytes of download for a runner with no GPU.
+      - name: Install CPU-only torch
+        run: uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install the package
+        run: uv pip install -e ".[dev]"
+
+      - run: uv run ruff check .
+
+      # -p no:randomly is not used: the fixture trains a model once per session and
+      # the tests are order-independent by design.
+      - run: uv run pytest

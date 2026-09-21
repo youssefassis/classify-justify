@@ -4,23 +4,12 @@ import torch
 from classify_justify.explain import available, build, get, to_heatmap
 from classify_justify.explain.base import _as_target
 
-# RISE, LIME and KernelSHAP need hundreds of forward passes; they are exercised with
-# reduced settings rather than skipped, because their contract is what is under test.
-SLOW = {"rise": {"n_masks": 64}, "lime": {"n_samples": 32}, "kernel-shap": {"n_samples": 32}}
-
-
-def _explainer(name, model):
-    explainer = build(name, model, model.target_layer)
-    for attribute, value in SLOW.get(name, {}).items():
-        setattr(explainer, attribute, value)
-    return explainer
-
 
 @pytest.mark.parametrize("name", available())
-def test_every_method_honours_the_contract(name, trained_model, defect_sample):
+def test_every_method_honours_the_contract(name, trained_model, defect_sample, make_explainer):
     """(B, 1, H, W) at input resolution, finite, for every registered method."""
     image, _ = defect_sample
-    relevance = _explainer(name, trained_model).attribute(image, 1)
+    relevance = make_explainer(name, trained_model).attribute(image, 1)
 
     assert relevance.shape == (1, 1, *image.shape[-2:])
     assert torch.isfinite(relevance).all()
@@ -28,12 +17,14 @@ def test_every_method_honours_the_contract(name, trained_model, defect_sample):
 
 
 @pytest.mark.parametrize("name", available())
-def test_methods_leave_the_model_as_they_found_it(name, trained_model, defect_sample):
+def test_methods_leave_the_model_as_they_found_it(
+    name, trained_model, defect_sample, make_explainer
+):
     """Hooks are removed and training mode restored, so methods can run in any order."""
     image, _ = defect_sample
     before = len(list(trained_model.target_layer._forward_hooks))
     trained_model.train()
-    _explainer(name, trained_model).attribute(image, 1)
+    make_explainer(name, trained_model).attribute(image, 1)
 
     assert trained_model.training, f"{name} left the model in eval mode"
     assert len(list(trained_model.target_layer._forward_hooks)) == before
@@ -94,10 +85,10 @@ def test_attribute_rejects_an_unbatched_image(trained_model):
 
 
 @pytest.mark.parametrize("name", ["score-cam", "ablation-cam", "rise"])
-def test_single_image_methods_say_so(name, trained_model):
+def test_single_image_methods_say_so(name, trained_model, make_explainer):
     """These mask or ablate per sample; a silent wrong answer would be worse."""
     with pytest.raises(ValueError, match="batch size 1"):
-        _explainer(name, trained_model).attribute(torch.randn(2, 1, 64, 64), 1)
+        make_explainer(name, trained_model).attribute(torch.randn(2, 1, 64, 64), 1)
 
 
 def test_grad_cam_may_legitimately_return_an_empty_map(trained_model):

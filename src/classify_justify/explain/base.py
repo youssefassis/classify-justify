@@ -20,6 +20,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from classify_justify.seeding import seeded
+
 _REGISTRY: dict[str, type[Explainer]] = {}
 
 
@@ -28,12 +30,22 @@ class Explainer(ABC):
 
     Subclasses set `name`, and set `needs_target_layer = True` if they attribute to a
     convolutional feature map rather than to the input.
+
+    `seed` fixes the randomness of the methods that have any. It lives here rather
+    than on the five that sample, because Captum draws from the global generator and
+    seeding it is therefore the same operation whatever the method — and because a
+    method being stochastic is then not something a caller has to know.
     """
 
     name: str = ""
     needs_target_layer: bool = False
 
-    def __init__(self, model: nn.Module, target_layer: nn.Module | None = None) -> None:
+    def __init__(
+        self,
+        model: nn.Module,
+        target_layer: nn.Module | None = None,
+        seed: int | None = None,
+    ) -> None:
         if self.needs_target_layer and target_layer is None:
             raise ValueError(
                 f"{type(self).__name__} attributes to a feature map and needs a "
@@ -41,6 +53,7 @@ class Explainer(ABC):
             )
         self.model = model
         self.target_layer = target_layer
+        self.seed = seed
 
     @abstractmethod
     def _attribute(self, inputs: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -55,7 +68,8 @@ class Explainer(ABC):
         was_training = self.model.training
         self.model.eval()
         try:
-            relevance = self._attribute(inputs, target)
+            with seeded(self.seed, inputs.device):
+                relevance = self._attribute(inputs, target)
         finally:
             self.model.train(was_training)
 
@@ -124,19 +138,25 @@ def get(name: str) -> type[Explainer]:
         raise KeyError(f"unknown method {name!r}; available: {', '.join(available())}") from None
 
 
-def build(name: str, model: nn.Module, target_layer: nn.Module | None = None) -> Explainer:
+def build(
+    name: str,
+    model: nn.Module,
+    target_layer: nn.Module | None = None,
+    seed: int | None = None,
+) -> Explainer:
     """Instantiate a registered explainer against a model."""
-    return get(name)(model, target_layer)
+    return get(name)(model, target_layer, seed)
 
 
 def build_all(
     model: nn.Module,
     target_layer: nn.Module | None = None,
     names: list[str] | None = None,
+    seed: int | None = None,
 ) -> Iterator[Explainer]:
     """Instantiate several explainers, defaulting to every registered one."""
     for name in names if names is not None else available():
-        yield build(name, model, target_layer)
+        yield build(name, model, target_layer, seed)
 
 
 def hooked_activations(

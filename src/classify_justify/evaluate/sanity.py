@@ -20,6 +20,7 @@ import torch
 from torch import nn
 
 from classify_justify.explain.base import Explainer
+from classify_justify.seeding import seeded
 
 
 @dataclass(frozen=True)
@@ -95,28 +96,39 @@ def model_randomization_test(
     target: int,
     target_layer_name: str | None = None,
     max_layers: int | None = None,
+    seed: int | None = None,
 ) -> SanityResult:
     """Cascading randomisation, as in Adebayo et al.
 
     The model is deep-copied, so the caller's trained weights are never touched. The
     explainer is rebuilt against each damaged copy — rebuilding rather than reusing
     matters, because CAM methods hold a reference to a specific layer object.
+
+    `seed` covers both halves of the comparison: the explainer's own sampling, and the
+    draw that re-initialises each layer. Without it the correlation reported for a
+    stochastic method mixes the thing being measured — how much the map depends on the
+    weights — with how much it depends on which masks happened to be drawn.
     """
-    reference_model = copy.deepcopy(model).eval()
-    reference = _attribute(reference_model, explainer_class, image, target, target_layer_name)
+    with seeded(seed, image.device):
+        reference_model = copy.deepcopy(model).eval()
+        reference = _attribute(
+            reference_model, explainer_class, image, target, target_layer_name, seed
+        )
 
-    damaged = copy.deepcopy(model).eval()
-    layers = _randomisable_layers(damaged)
-    if max_layers is not None:
-        layers = layers[:max_layers]
+        damaged = copy.deepcopy(model).eval()
+        layers = _randomisable_layers(damaged)
+        if max_layers is not None:
+            layers = layers[:max_layers]
 
-    names: list[str] = []
-    correlations: list[float] = []
-    for name, module in layers:
-        _reinitialise(module)
-        attribution = _attribute(damaged, explainer_class, image, target, target_layer_name)
-        names.append(name)
-        correlations.append(spearman(reference, attribution))
+        names: list[str] = []
+        correlations: list[float] = []
+        for name, module in layers:
+            _reinitialise(module)
+            attribution = _attribute(
+                damaged, explainer_class, image, target, target_layer_name, seed
+            )
+            names.append(name)
+            correlations.append(spearman(reference, attribution))
 
     return SanityResult(layers=names, correlations=correlations)
 
@@ -132,6 +144,7 @@ def _attribute(
     image: torch.Tensor,
     target: int,
     target_layer_name: str | None,
+    seed: int | None = None,
 ) -> torch.Tensor:
     """Build the explainer against `model` and attribute one image."""
     target_layer = None
@@ -140,7 +153,7 @@ def _attribute(
             target_layer = model.target_layer  # type: ignore[union-attr]
         else:
             target_layer = dict(model.named_modules())[target_layer_name]
-    relevance = explainer_class(model, target_layer).attribute(image, target)
+    relevance = explainer_class(model, target_layer, seed).attribute(image, target)
     # Compared as magnitudes, following Adebayo et al. Methods disagree on what a
     # negative value means — evidence against the class, or merely a downward
     # gradient — so a sign flip under randomisation is not evidence that the method

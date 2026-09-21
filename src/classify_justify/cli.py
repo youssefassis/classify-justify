@@ -49,6 +49,12 @@ def _add_explain(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--methods", nargs="+", default=None, help="default: every method")
     parser.add_argument("--target", type=int, default=1, help="class to explain")
     parser.add_argument("--output", default="runs/explanations")
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="fixes the sampling in rise, smoothgrad, gradient-shap, lime and kernel-shap",
+    )
 
 
 def _add_evaluate(subparsers: argparse._SubParsersAction) -> None:
@@ -64,6 +70,12 @@ def _add_evaluate(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--steps", type=int, default=64, help="deletion/insertion steps")
     parser.add_argument("--sanity", action="store_true", help="also run the randomisation test")
     parser.add_argument("--output", default="runs/evaluation.json")
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="fixes the sampling in rise, smoothgrad, gradient-shap, lime and kernel-shap",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -155,7 +167,8 @@ def _run_explain(args: argparse.Namespace) -> int:
 
     explaining = progress(methods, desc="explaining", unit="method", leave=False)
     for axis, name in zip(axes[1:], explaining, strict=False):
-        relevance = build(name, model, model.target_layer).attribute(image, args.target)
+        explainer = build(name, model, model.target_layer, seed=args.seed)
+        relevance = explainer.attribute(image, args.target)
         axis.imshow(image[0, 0], cmap="gray")
         axis.imshow(to_heatmap(relevance)[0, 0], cmap="inferno", alpha=0.55)
         axis.set_title(name, fontsize=9)
@@ -207,7 +220,7 @@ def _run_evaluate(args: argparse.Namespace) -> int:
     methods = args.methods or available()
     results = []
     for name in progress(methods, desc="methods", unit="method", leave=False):
-        explainer = build(name, model, model.target_layer)
+        explainer = build(name, model, model.target_layer, seed=args.seed)
         totals = dict.fromkeys(("deletion", "insertion", "pointing", "mass", "rank"), 0.0)
         for index in progress(defective, desc=name, unit="image", leave=False):
             image, _, mask = dataset[index]
@@ -223,7 +236,9 @@ def _run_evaluate(args: argparse.Namespace) -> int:
         row = {"method": name, **{k: v / len(defective) for k, v in totals.items()}}
         if args.sanity:
             image, _, _ = dataset[defective[0]]
-            sanity = model_randomization_test(model, get(name), image.unsqueeze(0), 1)
+            sanity = model_randomization_test(
+                model, get(name), image.unsqueeze(0), 1, seed=args.seed
+            )
             row["sanity_correlation"] = sanity.final_correlation
             row["sanity_passed"] = sanity.passed()
         results.append(row)

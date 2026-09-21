@@ -12,6 +12,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from classify_justify.data import SyntheticDefects, collate_without_masks
+from classify_justify.explain import build
 from classify_justify.models import DefectClassifier
 
 
@@ -53,3 +54,21 @@ def defect_sample() -> tuple[torch.Tensor, torch.Tensor]:
     image, label, mask = SyntheticDefects(size=128, image_size=64, seed=1)[1]
     assert label == 1
     return image.unsqueeze(0), mask
+
+
+#: RISE, LIME and KernelSHAP need hundreds of forward passes. Tests turn them down
+#: rather than skipping them, because their contract is what is under test.
+SLOW = {"rise": {"n_masks": 64}, "lime": {"n_samples": 32}, "kernel-shap": {"n_samples": 32}}
+
+
+@pytest.fixture
+def make_explainer():
+    """Build a registered explainer, with the slow methods reduced to test size."""
+
+    def make(name: str, model: DefectClassifier, seed: int | None = None):
+        explainer = build(name, model, model.target_layer, seed=seed)
+        for attribute, value in SLOW.get(name, {}).items():
+            setattr(explainer, attribute, value)
+        return explainer
+
+    return make

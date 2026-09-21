@@ -94,27 +94,34 @@ compared as magnitudes, following the paper.
 ## Results
 
 Every number is from the **synthetic** dataset — a classifier at F1 1.000 on 512
-held-out images, scored over 12 defective images. Industrial numbers need a GPU.
+held-out images, scored over 12 defective images at `--seed 0`. Industrial numbers
+need a GPU.
+
+The seed is not decoration. Five methods sample — `rise`, `smoothgrad`,
+`gradient-shap`, `lime` and `kernel-shap` — and so does the layer re-initialisation
+behind the sanity column, which moved by as much as 0.9 between runs before it was
+fixed. Every command takes `--seed`, so this table can be reproduced rather than
+merely believed.
 
 | method | deletion ↓ | insertion ↑ | pointing ↑ | mass ↑ | rank ↑ | sanity |
 |---|---|---|---|---|---|---|
-| `deeplift` | 0.103 | 0.984 | 1.00 | 0.734 | 0.786 | +0.53 |
-| `input-x-gradient` | 0.105 | 0.984 | 1.00 | 0.653 | 0.750 | +0.48 |
-| `gradient-shap` | 0.106 | 0.985 | 1.00 | 0.747 | 0.767 | +0.38 |
-| `integrated-gradients` | 0.107 | 0.984 | 1.00 | 0.726 | 0.764 | +0.48 |
-| `saliency` | 0.112 | 0.983 | 0.92 | 0.282 | 0.621 | +0.17 |
-| `smoothgrad` | 0.123 | 0.986 | 1.00 | 0.640 | 0.803 | +0.22 |
-| `guided-backprop` | 0.127 | 0.984 | 1.00 | 0.359 | 0.702 | +0.41 |
-| `ablation-cam` | 0.155 | 0.985 | 0.67 | 0.059 | 0.515 | +0.71 |
-| `grad-cam++` | 0.156 | 0.985 | 0.67 | 0.057 | 0.519 | +0.02 |
-| `score-cam` | 0.158 | 0.984 | 0.67 | 0.060 | 0.536 | +0.37 |
-| `grad-cam` | 0.161 | 0.984 | 0.67 | 0.060 | 0.510 | +0.54 |
-| `xgrad-cam` | 0.162 | 0.984 | 0.67 | 0.060 | 0.509 | +0.56 |
-| `rise` | 0.165 | 0.985 | 1.00 | 0.014 | 0.857 | +0.06 |
-| `layer-cam` | 0.209 | 0.983 | 0.42 | 0.090 | 0.298 | +0.30 |
-| `kernel-shap` | 0.238 | 0.978 | 0.08 | 0.113 | 0.116 | +0.10 |
-| `occlusion` | 0.261 | 0.960 | 0.00 | 0.053 | 0.073 | +0.88 |
-| `lime` | 0.269 | 0.982 | 0.08 | 0.121 | 0.114 | +0.49 |
+| `gradient-shap` | 0.099 | 0.992 | 1.00 | 0.734 | 0.769 | +0.49 |
+| `deeplift` | 0.098 | 0.990 | 1.00 | 0.734 | 0.786 | +0.50 |
+| `input-x-gradient` | 0.099 | 0.990 | 1.00 | 0.653 | 0.750 | +0.50 |
+| `integrated-gradients` | 0.101 | 0.991 | 1.00 | 0.726 | 0.764 | +0.49 |
+| `saliency` | 0.108 | 0.990 | 0.92 | 0.282 | 0.621 | +0.18 |
+| `smoothgrad` | 0.119 | 0.993 | 1.00 | 0.644 | 0.793 | +0.22 |
+| `guided-backprop` | 0.121 | 0.991 | 1.00 | 0.359 | 0.702 | +0.48 |
+| `ablation-cam` | 0.155 | 0.992 | 0.67 | 0.059 | 0.515 | +0.56 |
+| `grad-cam++` | 0.156 | 0.992 | 0.67 | 0.057 | 0.519 | +0.45 |
+| `score-cam` | 0.157 | 0.991 | 0.67 | 0.060 | 0.536 | -0.26 |
+| `rise` | 0.161 | 0.992 | 1.00 | 0.014 | 0.816 | +0.68 |
+| `grad-cam` | 0.161 | 0.991 | 0.67 | 0.060 | 0.510 | +0.59 |
+| `xgrad-cam` | 0.162 | 0.991 | 0.67 | 0.060 | 0.509 | +0.60 |
+| `layer-cam` | 0.209 | 0.987 | 0.42 | 0.090 | 0.298 | +0.29 |
+| `kernel-shap` | 0.267 | 0.982 | 0.08 | 0.115 | 0.111 | -0.34 |
+| `lime` | 0.285 | 0.984 | 0.08 | 0.120 | 0.146 | +0.13 |
+| `occlusion` | 0.261 | 0.959 | 0.00 | 0.053 | 0.073 | -0.26 |
 
 These are the properties of a *toy* problem, and three columns are artefacts of it:
 
@@ -124,9 +131,9 @@ These are the properties of a *toy* problem, and three columns are artefacts of 
   64×64 input to a 4×4 feature map, so every CAM is upsampled from sixteen values while
   the defect is four pixels across. A resolution limit, not a flaw in the method.
 - **The Adebayo signature is directional, not absolute, at this scale.** Guided
-  backprop decays 0.89 → 0.29, more clinging than `saliency` (0.26 → 0.09) but well
-  short of the near-1.0-throughout result the paper obtains with Inception and VGG on
-  ImageNet. A four-block CNN has little to destroy.
+  backprop decays 0.99 → 0.48 across the cascade, far more clinging than `saliency`
+  (0.75 → 0.18) but still short of the near-1.0-throughout result the paper obtains
+  with Inception and VGG on ImageNet. A four-block CNN has little to destroy.
 
 ## Reproducing on KolektorSDD2
 
@@ -175,7 +182,7 @@ when its threshold is still badly calibrated.
 ## Development
 
 ```bash
-python -m pytest        # 104 tests, ~30 s
+python -m pytest        # 131 tests, ~30 s
 python -m ruff check .
 ```
 

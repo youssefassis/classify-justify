@@ -21,6 +21,10 @@ dependencies = [
     "scikit-learn>=1.3",
     # Only for rendering explanation grids in the `explain` command.
     "matplotlib>=3.7",
+    # Already present as a torch dependency, declared because `seeding` imports it
+    # directly: Captum's GradientShap samples from numpy's generator rather than
+    # torch's, so a reproducible run has to fix that one too.
+    "numpy>=1.24",
     # The CA bundle for the dataset download: a stock python.org install on macOS
     # ships no usable certificate store and fails to fetch over HTTPS without it.
     "certifi>=2024.2",

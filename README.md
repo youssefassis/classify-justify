@@ -1,7 +1,7 @@
 # classify-justify
 
-Train a surface-defect classifier, explain it with seventeen attribution methods, and
-**measure whether those explanations can be trusted**.
+Train a surface-defect classifier, explain it with seventeen attribution methods and a
+control, and **measure whether those explanations can be trusted**.
 
 Most explainability code stops at a heatmap. A heatmap is easy to produce and easy to
 believe: it is a picture, it lands somewhere plausible, and nothing about it says
@@ -74,6 +74,17 @@ saturation; one to two orders of magnitude slower:
 | `lime` | fit a linear surrogate on superpixel on/off samples |
 | `kernel-shap` | the same, with Shapley kernel weights |
 
+**A control** — registered alongside the rest so the evaluation loop scores it on
+exactly the same images, with exactly the same metrics:
+
+| method | idea |
+|---|---|
+| `random` | uniform noise, drawn without consulting the model or the image |
+
+It is there because a deletion AUC of 0.26 is neither good nor bad on its own. Each
+metric has a floor that comes from the geometry of the problem rather than from any
+method, and the only cheap way to find that floor is to measure it.
+
 ## Measuring the explanations
 
 **Faithfulness** — rank pixels by relevance, then remove them in order (deletion,
@@ -122,11 +133,30 @@ merely believed.
 | `kernel-shap` | 0.267 | 0.982 | 0.08 | 0.115 | 0.111 | -0.34 |
 | `lime` | 0.285 | 0.984 | 0.08 | 0.120 | 0.146 | +0.13 |
 | `occlusion` | 0.261 | 0.959 | 0.00 | 0.053 | 0.073 | -0.26 |
+| **`random`** | **0.572** | **0.521** | **0.00** | **0.011** | **0.014** | **+1.00** |
 
-These are the properties of a *toy* problem, and three columns are artefacts of it:
+**Read every column against the `random` row.** Noise deletes at 0.572 and inserts at
+0.521, puts 0.011 of its mass inside the mask — the mask's share of the frame,
+which is what uniform relevance must score — and never once points at the defect. Every
+real method clears that floor on faithfulness and localisation by a wide margin, which
+is the part of this table that is not an artefact.
+
+The sanity column needs one caveat. **`random` scores +1.00 and fails the test** — at a
+fixed seed it draws the same noise before and after the weights are destroyed, so its
+map does not move, which is the right verdict for a map that never consulted the
+weights. Drawn fresh on every call it would decorrelate completely and pass: the test
+rewards a map for moving, and moving is not the same as depending on the weights.
+Depending on the weights is necessary for a trustworthy explanation and nowhere near
+sufficient — which is why the column is reported beside the other five rather than
+instead of them.
+
+Otherwise these are the properties of a *toy* problem, and three columns are artefacts
+of it:
 
 - **Insertion barely separates the methods** (0.96–0.99) — the synthetic classifier is
-  effectively certain, so the probability recovers from almost any few pixels.
+  effectively certain, so the probability recovers from almost any few pixels. The
+  floor shows this is saturation rather than a broken metric: the same column puts
+  noise at 0.521.
 - **The CAM family localises poorly** (mass ≈ 0.06) — four pooling stages reduce a
   64×64 input to a 4×4 feature map, so every CAM is upsampled from sixteen values while
   the defect is four pixels across. A resolution limit, not a flaw in the method.
@@ -182,7 +212,7 @@ when its threshold is still badly calibrated.
 ## Development
 
 ```bash
-python -m pytest        # 131 tests, ~30 s
+python -m pytest        # 137 tests, ~30 s
 python -m ruff check .
 ```
 

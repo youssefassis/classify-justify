@@ -4,7 +4,12 @@ Importing this package is what populates the registry: each module registers its
 methods on import, so `available()` is only complete once they have all been loaded.
 """
 
-from classify_justify.explain import cam, gradient, perturbation  # noqa: F401  (registration)
+from classify_justify.explain import (  # noqa: F401  (registration)
+    baseline,
+    cam,
+    gradient,
+    perturbation,
+)
 from classify_justify.explain.base import (
     Explainer,
     available,

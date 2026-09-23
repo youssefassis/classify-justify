@@ -55,6 +55,7 @@ def _add_explain(subparsers: argparse._SubParsersAction) -> None:
         default=0,
         help="fixes the sampling in rise, smoothgrad, gradient-shap, lime and kernel-shap",
     )
+    parser.add_argument("--device", default="auto", help="auto, cpu, mps or cuda")
 
 
 def _add_evaluate(subparsers: argparse._SubParsersAction) -> None:
@@ -76,6 +77,7 @@ def _add_evaluate(subparsers: argparse._SubParsersAction) -> None:
         default=0,
         help="fixes the sampling in rise, smoothgrad, gradient-shap, lime and kernel-shap",
     )
+    parser.add_argument("--device", default="auto", help="auto, cpu, mps or cuda")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -149,9 +151,11 @@ def _run_explain(args: argparse.Namespace) -> int:
 
     from classify_justify.explain import available, build, to_heatmap
     from classify_justify.models import load_checkpoint
+    from classify_justify.training import resolve_device
 
-    model = load_checkpoint(args.checkpoint)
-    image = _load_image(args.image, args.checkpoint)
+    device = resolve_device(args.device)
+    model = load_checkpoint(args.checkpoint).to(device)
+    image = _load_image(args.image, args.checkpoint).to(device)
     methods = args.methods or available()
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
@@ -161,7 +165,11 @@ def _run_explain(args: argparse.Namespace) -> int:
     figure, axes = plt.subplots(rows, columns, figsize=(4 * columns, 2 * rows))
     axes = axes.flatten() if hasattr(axes, "flatten") else [axes]
 
-    axes[0].imshow(image[0, 0], cmap="gray")
+    # Handed to matplotlib as an array, not a tensor: it cannot read an accelerator
+    # tensor at all, and on a CPU one it falls back to the __array__ protocol, which
+    # numpy 2 deprecates. Converting here says what is meant and keeps the warning out.
+    picture = image[0, 0].cpu().numpy()
+    axes[0].imshow(picture, cmap="gray")
     axes[0].set_title("input")
     axes[0].axis("off")
 
@@ -169,8 +177,8 @@ def _run_explain(args: argparse.Namespace) -> int:
     for axis, name in zip(axes[1:], explaining, strict=False):
         explainer = build(name, model, model.target_layer, seed=args.seed)
         relevance = explainer.attribute(image, args.target)
-        axis.imshow(image[0, 0], cmap="gray")
-        axis.imshow(to_heatmap(relevance)[0, 0], cmap="inferno", alpha=0.55)
+        axis.imshow(picture, cmap="gray")
+        axis.imshow(to_heatmap(relevance)[0, 0].cpu().numpy(), cmap="inferno", alpha=0.55)
         axis.set_title(name, fontsize=9)
         axis.axis("off")
     for axis in axes[len(methods) + 1 :]:
@@ -194,8 +202,10 @@ def _run_evaluate(args: argparse.Namespace) -> int:
     )
     from classify_justify.explain import available, build, get
     from classify_justify.models import load_checkpoint, read_metadata
+    from classify_justify.training import resolve_device
 
-    model = load_checkpoint(args.checkpoint)
+    device = resolve_device(args.device)
+    model = load_checkpoint(args.checkpoint).to(device)
     metadata = read_metadata(args.checkpoint)
     normalization = metadata.get("normalization", {"mean": 0.0, "std": 1.0})
     image_size = tuple(metadata.get("image_size", [256, 640]))
@@ -224,7 +234,10 @@ def _run_evaluate(args: argparse.Namespace) -> int:
         totals = dict.fromkeys(("deletion", "insertion", "pointing", "mass", "rank"), 0.0)
         for index in progress(defective, desc=name, unit="image", leave=False):
             image, _, mask = dataset[index]
-            batched = image.unsqueeze(0)
+            batched = image.unsqueeze(0).to(device)
+            # The localisation metrics index the relevance map with the mask, so the
+            # two have to live on the same device.
+            mask = mask.to(device)
             relevance = explainer.attribute(batched, 1)
             scores = faithfulness(model, batched, relevance, 1, steps=args.steps)
             totals["deletion"] += scores.deletion_auc
@@ -237,7 +250,7 @@ def _run_evaluate(args: argparse.Namespace) -> int:
         if args.sanity:
             image, _, _ = dataset[defective[0]]
             sanity = model_randomization_test(
-                model, get(name), image.unsqueeze(0), 1, seed=args.seed
+                model, get(name), image.unsqueeze(0).to(device), 1, seed=args.seed
             )
             row["sanity_correlation"] = sanity.final_correlation
             row["sanity_passed"] = sanity.passed()

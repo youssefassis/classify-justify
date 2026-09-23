@@ -178,8 +178,14 @@ python -m classify_justify evaluate --checkpoint runs/kolektor/model.pt --data-r
 ```
 
 Budget a GPU for training: at 256×640 it costs roughly **105 s/epoch on an Apple
-M-series GPU** and about **9 min/epoch on CPU**, for up to 30 epochs. The dataset is
-never vendored here — it is CC BY-NC-SA 4.0, non-commercial and share-alike, and cites:
+M-series GPU** and about **9 min/epoch on CPU**, for up to 30 epochs.
+
+`evaluate` and `explain` take `--device` as well, and want it more than training does:
+scoring seventeen methods over 25 images at 256×640 is dominated by the perturbation
+methods' thousands of forward passes apiece. Both default to `auto`, which picks CUDA,
+then MPS, then the CPU.
+
+The dataset is never vendored here — it is CC BY-NC-SA 4.0, non-commercial and share-alike, and cites:
 
 > Božič, Tabernik, Skočaj (2021). *Mixed supervision for surface-defect detection:
 > from weakly to fully supervised learning.* Computers in Industry.

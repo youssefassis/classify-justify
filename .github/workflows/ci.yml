@@ -30,7 +30,7 @@ jobs:
 
       # Pinned to an exact release: setup-uv publishes no floating major tag, and
       # Dependabot bumps this on its weekly pass.
-      - uses: astral-sh/setup-uv@v10.1.0
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
 

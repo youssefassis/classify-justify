@@ -2,7 +2,7 @@ version: 2
 updates:
   # One grouped PR a week keeps the noise down; majors still come in alone,
   # since the repo's rule is that they need a compatibility check first.
-  - package-ecosystem: pip
+  - package-ecosystem: uv
     directory: /
     schedule:
       interval: weekly

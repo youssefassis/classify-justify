@@ -14,12 +14,15 @@ agreement with ground truth, and for whether it depends on the trained weights a
 No download, no GPU. Trains in about fifteen seconds on a laptop CPU:
 
 ```bash
-uv venv && uv pip install -e ".[dev]"
+uv sync
 
-python -m classify_justify train --dataset synthetic --output runs/synthetic --device cpu
-python -m classify_justify evaluate --checkpoint runs/synthetic/model.pt --dataset synthetic --sanity
-python -m classify_justify explain --checkpoint runs/synthetic/model.pt --image <some.png>
+uv run classify-justify train --dataset synthetic --output runs/synthetic --device cpu
+uv run classify-justify evaluate --checkpoint runs/synthetic/model.pt --dataset synthetic --sanity
+uv run classify-justify explain --checkpoint runs/synthetic/model.pt --image <some.png>
 ```
+
+On Linux without a GPU, add `--extra cpu` to `uv sync` and `uv run` to skip the
+multi-gigabyte CUDA build of torch. Without uv, `pip install -e .` works too.
 
 The synthetic dataset is generated, not downloaded: textured images, half carrying a
 small bright blob, with the blob's exact position known. That known position is the
@@ -172,9 +175,9 @@ production surfaces, 356 defective, each with a pixel-level mask — masks rathe
 boxes, so localisation is scored against the defect's actual shape.
 
 ```bash
-python -m classify_justify download --root data
-python -m classify_justify train --dataset kolektor --data-root data/KolektorSDD2 --output runs/kolektor
-python -m classify_justify evaluate --checkpoint runs/kolektor/model.pt --data-root data/KolektorSDD2 --sanity
+uv run classify-justify download --root data
+uv run classify-justify train --dataset kolektor --data-root data/KolektorSDD2 --output runs/kolektor
+uv run classify-justify evaluate --checkpoint runs/kolektor/model.pt --data-root data/KolektorSDD2 --sanity
 ```
 
 Budget a GPU for training: at 256×640 it costs roughly **105 s/epoch on an Apple
@@ -218,8 +221,8 @@ when its threshold is still badly calibrated.
 ## Development
 
 ```bash
-python -m pytest        # 137 tests, ~30 s
-python -m ruff check .
+uv run pytest           # 141 tests, ~30 s
+uv run ruff check .
 ```
 
 Tests train a small model on synthetic data and assert it reached accuracy > 0.9. That

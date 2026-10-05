@@ -32,6 +32,7 @@ from classify_justify.data import (
     KolektorSDD2,
     SyntheticDefects,
     channel_statistics,
+    collate_without_masks,
     eval_transform,
     stratified_split,
     train_transform,
@@ -124,17 +125,12 @@ def _dataset_factory(config: TrainConfig) -> Callable[..., Dataset]:
 
 
 def _loader(dataset: Dataset, batch_size: int, shuffle: bool, workers: int) -> DataLoader:
-    def collate(batch):
-        images = torch.stack([item[0] for item in batch])
-        labels = torch.tensor([item[1] for item in batch], dtype=torch.long)
-        return images, labels
-
     return DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=shuffle,
         num_workers=workers,
-        collate_fn=collate,
+        collate_fn=collate_without_masks,
         persistent_workers=workers > 0,
     )
 

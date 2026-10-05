@@ -23,7 +23,12 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from classify_justify.explain.base import Explainer, hooked_activations, register
+from classify_justify.explain.base import (
+    Explainer,
+    hooked_activations,
+    min_max_per_sample,
+    register,
+)
 
 
 class _CAM(Explainer):
@@ -140,10 +145,7 @@ class ScoreCAM(_GradientFreeCAM):
         masks = F.interpolate(
             activations, size=inputs.shape[-2:], mode="bilinear", align_corners=False
         )[0]
-        flat = masks.flatten(1)
-        lo = flat.min(dim=1).values.view(-1, 1, 1)
-        hi = flat.max(dim=1).values.view(-1, 1, 1)
-        masks = (masks - lo) / (hi - lo).clamp(min=1e-12)
+        masks = min_max_per_sample(masks)
 
         scores = []
         cls = int(target[0])

@@ -42,7 +42,7 @@ gpu = ["torch>=2.2", "torchvision>=0.17"]
 classify-justify = "classify_justify.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.6"]
+dev = ["pytest>=8.0", "ruff>=0.6"]
 
 [tool.uv]
 conflicts = [[{ extra = "cpu" }, { extra = "gpu" }]]

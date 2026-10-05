@@ -21,8 +21,7 @@ the validation defect count small enough to swing several points between seeds.
 from __future__ import annotations
 
 import torch
-
-from classify_justify.data.kolektor import KolektorSDD2
+from torch.utils.data import Dataset
 
 
 def stratified_split(
@@ -54,7 +53,7 @@ def stratified_split(
     return sorted(train_indices), sorted(validation_indices)
 
 
-def channel_statistics(dataset: KolektorSDD2, limit: int | None = 512) -> tuple[float, float]:
+def channel_statistics(dataset: Dataset, limit: int | None = 512) -> tuple[float, float]:
     """Mean and standard deviation over the **training** images only.
 
     `limit` caps how many images are read; the estimate is stable long before the full

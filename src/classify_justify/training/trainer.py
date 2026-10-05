@@ -37,7 +37,12 @@ from classify_justify.data import (
     stratified_split,
     train_transform,
 )
-from classify_justify.models import DefectClassifier, ModelConfig, save_checkpoint
+from classify_justify.models import (
+    DefectClassifier,
+    ModelConfig,
+    load_checkpoint,
+    save_checkpoint,
+)
 from classify_justify.progress import progress
 from classify_justify.training.metrics import ClassificationReport, class_weights, report
 
@@ -247,8 +252,6 @@ def train(config: TrainConfig, verbose: bool = True) -> TrainResult:
                 break
 
     # Report the test split with the best checkpoint, never the last one.
-    from classify_justify.models import load_checkpoint
-
     best_model = load_checkpoint(checkpoint).to(device)
     test_scores = evaluate(best_model, test_loader, device)
     if verbose:

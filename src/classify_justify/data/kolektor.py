@@ -133,7 +133,7 @@ class KolektorSDD2(Dataset):
         self.directory = Path(root) / split
         if not self.directory.is_dir():
             raise FileNotFoundError(
-                f"{self.directory} not found — run `python -m classify_justify download` or "
+                f"{self.directory} not found — run `classify-justify download` or "
                 "classify_justify.data.kolektor.download() first"
             )
 

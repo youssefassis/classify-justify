@@ -100,17 +100,6 @@ class DefectClassifier(nn.Module):
         return self.fc(x)
 
 
-def build_model(**kwargs: object) -> DefectClassifier:
-    """Build a classifier from loose keyword arguments (as parsed from YAML)."""
-    field_names = {f for f in ModelConfig.__dataclass_fields__}
-    unknown = set(kwargs) - field_names
-    if unknown:
-        raise ValueError(f"unknown model options: {sorted(unknown)}")
-    if "widths" in kwargs and kwargs["widths"] is not None:
-        kwargs["widths"] = tuple(kwargs["widths"])  # type: ignore[arg-type]
-    return DefectClassifier(ModelConfig(**kwargs))  # type: ignore[arg-type]
-
-
 def save_checkpoint(
     model: DefectClassifier, path: str | Path, metadata: dict | None = None
 ) -> None:

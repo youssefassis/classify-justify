@@ -14,7 +14,7 @@ of display rather than burying it in each method.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 
 import torch
 import torch.nn.functional as F
@@ -146,17 +146,6 @@ def build(
 ) -> Explainer:
     """Instantiate a registered explainer against a model."""
     return get(name)(model, target_layer, seed)
-
-
-def build_all(
-    model: nn.Module,
-    target_layer: nn.Module | None = None,
-    names: list[str] | None = None,
-    seed: int | None = None,
-) -> Iterator[Explainer]:
-    """Instantiate several explainers, defaulting to every registered one."""
-    for name in names if names is not None else available():
-        yield build(name, model, target_layer, seed)
 
 
 def hooked_activations(

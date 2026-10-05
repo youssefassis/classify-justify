@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import torch
@@ -69,11 +69,8 @@ class TrainConfig:
 
 @dataclass
 class TrainResult:
-    best_average_precision: float
     best_epoch: int
     checkpoint: Path
-    normalization: tuple[float, float]
-    history: list[dict] = field(default_factory=list)
     test: ClassificationReport | None = None
 
 
@@ -207,7 +204,6 @@ def train(config: TrainConfig, verbose: bool = True) -> TrainResult:
     best = (-1.0, -1.0)
     best_epoch = -1
     since_improvement = 0
-    history: list[dict] = []
 
     for epoch in range(1, config.epochs + 1):
         model.train()
@@ -233,9 +229,6 @@ def train(config: TrainConfig, verbose: bool = True) -> TrainResult:
             seen += len(labels)
 
         scores = evaluate(model, validation_loader, device)
-        history.append(
-            {"epoch": epoch, "loss": running / max(seen, 1), "val_ap": scores.average_precision}
-        )
         if verbose:
             print(
                 f"epoch {epoch:3d}  loss {running / max(seen, 1):.4f}  "
@@ -270,10 +263,7 @@ def train(config: TrainConfig, verbose: bool = True) -> TrainResult:
         )
 
     return TrainResult(
-        best_average_precision=best[0],
         best_epoch=best_epoch,
         checkpoint=checkpoint,
-        normalization=(mean, std),
-        history=history,
         test=test_scores,
     )

@@ -14,7 +14,7 @@ of display rather than burying it in each method.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 
 import torch
 import torch.nn.functional as F
@@ -106,13 +106,18 @@ def to_heatmap(relevance: torch.Tensor, signed: bool = False) -> torch.Tensor:
     Normalisation is per sample: heatmaps are compared within an image, never across.
     """
     relevance = relevance.abs() if not signed else relevance.clamp(min=0)
-    flat = relevance.flatten(1)
-    lo = flat.min(dim=1).values.view(-1, 1, 1, 1)
-    hi = flat.max(dim=1).values.view(-1, 1, 1, 1)
+    return min_max_per_sample(relevance)
+
+
+def min_max_per_sample(values: torch.Tensor) -> torch.Tensor:
+    """Rescale each entry along the first dimension to [0, 1] independently."""
+    flat = values.flatten(1)
+    shape = (-1,) + (1,) * (values.dim() - 1)
+    lo = flat.min(dim=1).values.view(shape)
+    hi = flat.max(dim=1).values.view(shape)
     # A constant map (every method produces one occasionally) normalises to zero
     # rather than dividing by zero and returning NaN.
-    scaled = (relevance - lo) / (hi - lo).clamp(min=1e-12)
-    return torch.where(hi > lo, scaled, torch.zeros_like(relevance))
+    return (values - lo) / (hi - lo).clamp(min=1e-12)
 
 
 def register(cls: type[Explainer]) -> type[Explainer]:
@@ -146,17 +151,6 @@ def build(
 ) -> Explainer:
     """Instantiate a registered explainer against a model."""
     return get(name)(model, target_layer, seed)
-
-
-def build_all(
-    model: nn.Module,
-    target_layer: nn.Module | None = None,
-    names: list[str] | None = None,
-    seed: int | None = None,
-) -> Iterator[Explainer]:
-    """Instantiate several explainers, defaulting to every registered one."""
-    for name in names if names is not None else available():
-        yield build(name, model, target_layer, seed)
 
 
 def hooked_activations(

@@ -94,7 +94,6 @@ def model_randomization_test(
     explainer_class: type[Explainer],
     image: torch.Tensor,
     target: int,
-    target_layer_name: str | None = None,
     max_layers: int | None = None,
     seed: int | None = None,
 ) -> SanityResult:
@@ -111,9 +110,7 @@ def model_randomization_test(
     """
     with seeded(seed, image.device):
         reference_model = copy.deepcopy(model).eval()
-        reference = _attribute(
-            reference_model, explainer_class, image, target, target_layer_name, seed
-        )
+        reference = _attribute(reference_model, explainer_class, image, target, seed)
 
         damaged = copy.deepcopy(model).eval()
         layers = _randomisable_layers(damaged)
@@ -124,9 +121,7 @@ def model_randomization_test(
         correlations: list[float] = []
         for name, module in layers:
             _reinitialise(module)
-            attribution = _attribute(
-                damaged, explainer_class, image, target, target_layer_name, seed
-            )
+            attribution = _attribute(damaged, explainer_class, image, target, seed)
             names.append(name)
             correlations.append(spearman(reference, attribution))
 
@@ -143,16 +138,12 @@ def _attribute(
     explainer_class: type[Explainer],
     image: torch.Tensor,
     target: int,
-    target_layer_name: str | None,
     seed: int | None = None,
 ) -> torch.Tensor:
     """Build the explainer against `model` and attribute one image."""
     target_layer = None
     if explainer_class.needs_target_layer:
-        if target_layer_name is None:
-            target_layer = model.target_layer  # type: ignore[union-attr]
-        else:
-            target_layer = dict(model.named_modules())[target_layer_name]
+        target_layer = model.target_layer  # type: ignore[union-attr]
     relevance = explainer_class(model, target_layer, seed).attribute(image, target)
     # Compared as magnitudes, following Adebayo et al. Methods disagree on what a
     # negative value means — evidence against the class, or merely a downward

@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import torch
@@ -32,11 +32,17 @@ from classify_justify.data import (
     KolektorSDD2,
     SyntheticDefects,
     channel_statistics,
+    collate_without_masks,
     eval_transform,
     stratified_split,
     train_transform,
 )
-from classify_justify.models import DefectClassifier, ModelConfig, save_checkpoint
+from classify_justify.models import (
+    DefectClassifier,
+    ModelConfig,
+    load_checkpoint,
+    save_checkpoint,
+)
 from classify_justify.progress import progress
 from classify_justify.training.metrics import ClassificationReport, class_weights, report
 
@@ -69,11 +75,8 @@ class TrainConfig:
 
 @dataclass
 class TrainResult:
-    best_average_precision: float
     best_epoch: int
     checkpoint: Path
-    normalization: tuple[float, float]
-    history: list[dict] = field(default_factory=list)
     test: ClassificationReport | None = None
 
 
@@ -127,17 +130,12 @@ def _dataset_factory(config: TrainConfig) -> Callable[..., Dataset]:
 
 
 def _loader(dataset: Dataset, batch_size: int, shuffle: bool, workers: int) -> DataLoader:
-    def collate(batch):
-        images = torch.stack([item[0] for item in batch])
-        labels = torch.tensor([item[1] for item in batch], dtype=torch.long)
-        return images, labels
-
     return DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=shuffle,
         num_workers=workers,
-        collate_fn=collate,
+        collate_fn=collate_without_masks,
         persistent_workers=workers > 0,
     )
 
@@ -207,7 +205,6 @@ def train(config: TrainConfig, verbose: bool = True) -> TrainResult:
     best = (-1.0, -1.0)
     best_epoch = -1
     since_improvement = 0
-    history: list[dict] = []
 
     for epoch in range(1, config.epochs + 1):
         model.train()
@@ -233,9 +230,6 @@ def train(config: TrainConfig, verbose: bool = True) -> TrainResult:
             seen += len(labels)
 
         scores = evaluate(model, validation_loader, device)
-        history.append(
-            {"epoch": epoch, "loss": running / max(seen, 1), "val_ap": scores.average_precision}
-        )
         if verbose:
             print(
                 f"epoch {epoch:3d}  loss {running / max(seen, 1):.4f}  "
@@ -258,8 +252,6 @@ def train(config: TrainConfig, verbose: bool = True) -> TrainResult:
                 break
 
     # Report the test split with the best checkpoint, never the last one.
-    from classify_justify.models import load_checkpoint
-
     best_model = load_checkpoint(checkpoint).to(device)
     test_scores = evaluate(best_model, test_loader, device)
     if verbose:
@@ -270,10 +262,7 @@ def train(config: TrainConfig, verbose: bool = True) -> TrainResult:
         )
 
     return TrainResult(
-        best_average_precision=best[0],
         best_epoch=best_epoch,
         checkpoint=checkpoint,
-        normalization=(mean, std),
-        history=history,
         test=test_scores,
     )

@@ -5,7 +5,6 @@ from torch import nn
 from classify_justify.models import (
     DefectClassifier,
     ModelConfig,
-    build_model,
     load_checkpoint,
     save_checkpoint,
 )
@@ -60,9 +59,4 @@ def test_relus_are_not_inplace():
 )
 def test_config_validates_at_the_boundary(kwargs, message):
     with pytest.raises(ValueError, match=message):
-        build_model(**kwargs)
-
-
-def test_build_model_rejects_unknown_options():
-    with pytest.raises(ValueError, match="unknown model options"):
-        build_model(widht=8)
+        ModelConfig(**kwargs)
